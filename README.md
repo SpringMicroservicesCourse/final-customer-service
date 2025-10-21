@@ -1,265 +1,505 @@
-# SpringBucks 客戶微服務 ⚡
+# final-customer-service
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+> SpringBucks Customer Service - Microservice with Feign client, Circuit Breaker, Bulkhead, message routing, and distributed tracing
+
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/)
 [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2024.0.2-blue.svg)](https://spring.io/projects/spring-cloud)
-[![Docker](https://img.shields.io/badge/Docker-Containerized-blue.svg)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Zipkin](https://img.shields.io/badge/Zipkin-Enabled-blue.svg)](https://zipkin.io/)
+[![Feign](https://img.shields.io/badge/Feign-Client-green.svg)](https://github.com/OpenFeign/feign)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 專案介紹
+Customer-facing microservice demonstrating Spring Cloud OpenFeign integration, Resilience4j Circuit Breaker + Bulkhead patterns, RabbitMQ routing key filtering, and Zipkin distributed tracing. Supports multi-instance deployment with dynamic port configuration.
 
-本專案為 SpringBucks 咖啡店系統的客戶微服務，負責處理客戶訂單、與服務員服務的整合、以及分散式系統的鏈路追蹤。此服務展示了現代微服務架構中客戶端服務的設計模式，包含服務發現、負載均衡、熔斷機制等核心功能。
+## Features
 
-**核心功能：**
-- **客戶訂單管理**：處理客戶下單、訂單查詢、訂單狀態追蹤
-- **服務整合**：透過 OpenFeign 與服務員服務進行整合
-- **負載均衡**：支援多實例部署，自動負載分散
-- **熔斷保護**：整合 Resilience4j 提供服務熔斷與重試機制
-- **鏈路追蹤**：整合 Zipkin 進行分散式鏈路追蹤
-- **健康監控**：提供完整的服務健康檢查與監控指標
+- **Declarative REST Client**: Spring Cloud OpenFeign for service-to-service communication
+- **Circuit Breaker**: Resilience4j circuit breaker for `order` and `menu` endpoints
+- **Bulkhead Pattern**: Concurrent call isolation (order: 1 thread, menu: 5 threads)
+- **Routing Key Filtering**: RabbitMQ consumer with customer-specific routing keys
+- **Distributed Tracing**: HTTP-based Zipkin integration (Micrometer Tracing)
+- **Multi-Instance Support**: Environment variable-based port configuration
+- **Service Discovery**: Automatic Consul registration and discovery
+- **Docker Ready**: Containerized deployment with Docker Compose
 
-> 💡 **為什麼選擇此微服務架構？**
-> - 展示客戶端微服務的完整設計模式
-> - 整合現代化的服務治理與監控工具
-> - 支援高可用性與容錯機制
-> - 提供完整的分散式系統追蹤能力
+## Tech Stack
 
-### 🎯 專案特色
+- **Spring Boot 3.4.5** + **Spring Cloud 2024.0.2**
+- **Spring Cloud OpenFeign** + **Apache HttpClient 5**
+- **Resilience4j Spring Boot 3** (Circuit Breaker + Bulkhead)
+- **Spring Cloud Stream** + **RabbitMQ** (Message consumer)
+- **Micrometer Tracing + Brave Bridge**
+- **Zipkin** (HTTP reporter)
+- **Spring Cloud Consul Discovery**
+- **Joda Money 2.0.2**
+- **Lombok** + **Java 21**
 
-- **微服務整合**：使用 OpenFeign 實現聲明式 HTTP 客戶端
-- **負載均衡**：支援多實例部署，自動負載分散
-- **熔斷保護**：整合 Resilience4j 提供服務熔斷與重試機制
-- **鏈路追蹤**：整合 Zipkin 進行分散式系統的請求追蹤
-- **容器化部署**：支援 Docker 打包與部署，便於環境一致性
-- **監控整合**：支援 Prometheus 指標收集與健康檢查
-
-## 技術棧
-
-### 核心框架
-- **Spring Boot 3.4.5** - 主框架，提供自動配置與生產就緒功能
-- **Spring Cloud 2024.0.2** - 微服務框架，提供服務整合與治理功能
-- **Spring Cloud OpenFeign** - 聲明式 HTTP 客戶端
-- **Resilience4j** - 熔斷器與重試機制
-
-### 微服務與監控
-- **Consul** - 服務註冊與發現中心
-- **Zipkin** - 分散式鏈路追蹤系統
-- **Micrometer** - 應用程式指標收集
-- **Spring Cloud Stream** - 訊息驅動微服務框架
-
-### 開發工具與輔助
-- **Lombok** - 減少樣板程式碼
-- **Apache HttpClient** - HTTP 客戶端連線池管理
-- **AspectJ** - 面向切面程式設計
-- **Docker** - 容器化部署
-- **Maven** - 專案建構與依賴管理
-
-## 專案結構
+## Architecture
 
 ```
-final-customer-service/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── tw/fengqing/spring/springbucks/customer/
-│   │   │       ├── CustomerServiceApplication.java          # 主要應用程式入口
-│   │   │       ├── controller/                             # 控制器層
-│   │   │       │   └── CustomerController.java           # 客戶控制器
-│   │   │       ├── model/                                 # 資料模型
-│   │   │       │   ├── Coffee.java                      # 咖啡實體
-│   │   │       │   ├── CoffeeOrder.java                 # 咖啡訂單實體
-│   │   │       │   └── OrderState.java                  # 訂單狀態枚舉
-│   │   │       ├── service/                              # 業務邏輯層
-│   │   │       │   └── CustomerService.java            # 客戶業務邏輯
-│   │   │       ├── support/                             # 支援類別
-│   │   │       │   └── CustomConnectionKeepAliveStrategy.java # 自定義連線策略
-│   │   │       └── config/                              # 配置類別
-│   │   │           └── FeignTracingConfig.java         # Feign 鏈路追蹤配置
-│   │   └── resources/
-│   │       ├── application.properties                    # 應用程式配置
-│   │       └── bootstrap.properties                      # 啟動配置
-│   └── test/
-├── Dockerfile                                            # Docker 建構檔案
-├── pom.xml                                              # Maven 專案配置
-└── README.md                                            # 專案說明文件
+┌─────────────────────────────────────────────────────────────┐
+│                final-customer-service                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │          CustomerController (REST API)              │   │
+│  │  POST /customer/order  → Create order via Feign    │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                         ↓ ↓ ↓                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         WaiterServiceClient (Feign Client)           │  │
+│  │  @CircuitBreaker(name = "order")                     │  │
+│  │  @Bulkhead(name = "order", type = SEMAPHORE)        │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                         ↓                                    │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │       Consul Discovery (waiter-service lookup)       │  │
+│  │       http://waiter-service:8080/order/              │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │   NotificationListener (RabbitMQ Consumer)           │  │
+│  │   Queue: notifyOrders.customer-service-{port}        │  │
+│  │   Routing Key: spring-{port}                         │  │
+│  │   → Only receives own customer's notifications      │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                               │
+│  Resilience4j Protection:                                    │
+│  ✓ Circuit Breaker: 50% failure threshold, 5s wait          │
+│  ✓ Bulkhead (order): 1 concurrent call max, 5s wait         │
+│  ✓ Bulkhead (menu): 5 concurrent calls max                  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 快速開始
+## Getting Started
 
-### 前置需求
-- **Java 21** - 最新 LTS 版本的 Java
-- **Maven 3.6+** - 專案建構工具
-- **Docker** - 容器化部署（選用）
-- **Consul** - 服務註冊中心（或使用 Docker 容器）
-- **RabbitMQ** - 訊息佇列系統（或使用 Docker 容器）
-- **Zipkin** - 鏈路追蹤系統（或使用 Docker 容器）
+### Prerequisites
 
-### 安裝與執行
+- **JDK 21** or higher
+- **Maven 3.8+** (or use included wrapper)
+- **Docker** + **Docker Compose** (for complete system deployment)
+- **Running waiter-service** (for Feign client to call)
 
-1. **克隆此倉庫：**
+### Quick Start (Docker Compose - Recommended)
+
+**Step 1: Build All Docker Images**
+
 ```bash
-git clone https://github.com/username/springbucks-microservices.git
+# Navigate to Chapter 16 directory
+cd "Chapter 16 服務鏈路追蹤"
+
+# Build waiter-service first
+cd final-waiter-service
+mvn clean package -DskipTests
+
+# Build customer-service
+cd ../final-customer-service
+mvn clean package -DskipTests
+# Output: springbucks/final-customer-service:0.0.1-SNAPSHOT
+
+# Build barista-service
+cd ../final-barista-service
+mvn clean package -DskipTests
+
+cd ..
 ```
 
-2. **進入專案目錄：**
+**Step 2: Start Complete System**
+
 ```bash
-cd Chapter\ 16\ 服務鏈路追蹤/final-customer-service
-```
-
-3. **編譯專案：**
-```bash
-mvn clean compile
-```
-
-4. **執行應用程式：**
-```bash
-mvn spring-boot:run
-```
-
-### Docker 部署
-
-1. **建構 Docker 映像檔：**
-```bash
-mvn clean package dockerfile:build
-```
-
-2. **執行 Docker 容器：**
-```bash
-# 預設端口 8090
-docker run -p 8090:8090 springbucks/final-customer-service:0.0.1-SNAPSHOT
-
-# 自定義端口 9090
-docker run -p 9090:9090 -e SERVER_PORT=9090 springbucks/final-customer-service:0.0.1-SNAPSHOT
-```
-
-3. **使用 Docker Compose 啟動完整環境：**
-```bash
-cd Chapter\ 16\ 服務鏈路追蹤
+# Start all 9 containers
 docker-compose up -d
+
+# Wait for services to be ready (~30 seconds)
+docker-compose ps
+
+# Expected containers:
+# - final-customer-service-8090 (Up - port 8090)
+# - final-customer-service-9090 (Up - port 9090)
+# - final-waiter-service         (Up - port 8080)
+# - final-barista-service        (Up)
+# - consul, rabbitmq, zipkin, mariadb, redis
 ```
 
-## 進階說明
+**Step 3: Verify Multi-Instance Deployment**
 
-### 環境變數
+```bash
+# Check Consul for registered customer-service instances
+curl http://localhost:8500/v1/catalog/service/customer-service | jq
+
+# Expected: 2 instances with different ports (8090, 9090)
+
+# Test instance 1 (port 8090)
+curl http://localhost:8090/actuator/health
+
+# Test instance 2 (port 9090)
+curl http://localhost:9090/actuator/health
+```
+
+### Standalone Execution (Development)
+
+**Prerequisites: Start Infrastructure + waiter-service**
+
+```bash
+# Start infrastructure (Consul, RabbitMQ, Zipkin)
+docker run -d --name consul -p 8500:8500 consul:1.4.5
+docker run -d --name rabbitmq \
+  -e RABBITMQ_DEFAULT_USER=spring \
+  -e RABBITMQ_DEFAULT_PASS=spring \
+  -p 5672:5672 -p 15672:15672 \
+  rabbitmq:4.1.4-management
+docker run -d --name zipkin -p 9411:9411 openzipkin/zipkin:3-arm64
+
+# Start waiter-service (required for Feign client)
+cd ../final-waiter-service
+./mvnw spring-boot:run
+```
+
+**Run customer-service (Default Port 8090)**
+
+```bash
+./mvnw spring-boot:run
+```
+
+**Run Multiple Instances (Multi-Instance Testing)**
+
+```bash
+# Instance 1 (port 8090 - default)
+./mvnw spring-boot:run
+
+# Instance 2 (port 9090 - in another terminal)
+./mvnw spring-boot:run -Dspring-boot.run.arguments="--server.port=9090"
+```
+
+## API Documentation
+
+### Customer Order Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/customer/order` | Create order via Feign (calls waiter-service) |
+
+**Example: Create Order**
+
+```bash
+# From instance 1 (port 8090)
+curl -X POST http://localhost:8090/customer/order \
+  -H "Content-Type: application/json"
+
+# Expected response:
+{
+  "id": 1,
+  "customer": "spring-8090",  ← Matches instance port
+  "items": [
+    {
+      "name": "capuccino",
+      "price": 125.00
+    }
+  ],
+  "state": "PAID",
+  "waiter": "springbucks-<uuid>",
+  "discount": 95,
+  "total": 118.75
+}
+```
+
+## Configuration Highlights
+
+### Feign Client Configuration
+
 ```properties
-# 服務端口配置
-SERVER_PORT=8090
-
-# Consul 配置
-SPRING_CLOUD_CONSUL_HOST=localhost
-SPRING_CLOUD_CONSUL_PORT=8500
-
-# Zipkin 配置
-MANAGEMENT_TRACING_ENDPOINT=http://localhost:9411/api/v2/spans
-
-# HTTP 客戶端配置
-HTTP_CLIENT_MAX_CONN_TOTAL=200
-HTTP_CLIENT_MAX_CONN_PER_ROUTE=20
+# Timeout settings
+feign.client.config.default.connect-timeout=500
+feign.client.config.default.read-timeout=500
 ```
 
-### 設定檔說明
-```properties
-# application.properties 主要設定
-spring.application.name=customer-service
-server.port=${SERVER_PORT:8090}
-
-# 服務發現配置
-spring.cloud.consul.discovery.service-name=${spring.application.name}
-spring.cloud.consul.discovery.health-check-interval=10s
-
-# Feign 配置
-feign.client.config.default.connect-timeout=5000
-feign.client.config.default.read-timeout=10000
-```
-
-## API 端點
-
-### 客戶訂單管理
-- `GET /customer/coffee` - 查詢所有咖啡產品
-- `GET /customer/coffee/{id}` - 查詢特定咖啡產品
-- `POST /customer/order` - 建立新訂單
-- `GET /customer/order/{id}` - 查詢特定訂單
-
-### 監控端點
-- `GET /actuator/health` - 健康檢查
-- `GET /actuator/metrics` - 應用程式指標
-- `GET /actuator/prometheus` - Prometheus 指標
-
-## 服務整合
-
-### 與服務員服務整合
-本服務透過 OpenFeign 與服務員服務進行整合：
+**Feign Client Interface**:
 
 ```java
 @FeignClient(name = "waiter-service")
 public interface WaiterServiceClient {
-    @GetMapping("/coffee")
-    List<Coffee> getAllCoffee();
     
-    @GetMapping("/coffee/{id}")
-    Coffee getCoffeeById(@PathVariable Long id);
+    @CircuitBreaker(name = "order", fallbackMethod = "createOrderFallback")
+    @Bulkhead(name = "order", type = Bulkhead.Type.SEMAPHORE)
+    @PostMapping("/order/")
+    CoffeeOrder createOrder(@RequestBody NewOrderRequest order);
     
-    @PostMapping("/order")
-    CoffeeOrder createOrder(@RequestBody CoffeeOrder order);
+    @CircuitBreaker(name = "menu", fallbackMethod = "getMenuFallback")
+    @Bulkhead(name = "menu")
+    @GetMapping("/coffee/")
+    List<Coffee> getMenu();
 }
 ```
 
-### 熔斷機制配置
+### Resilience4j Circuit Breaker
+
+```properties
+# Circuit Breaker for 'order' endpoint
+resilience4j.circuitbreaker.instances.order.failure-rate-threshold=50
+resilience4j.circuitbreaker.instances.order.wait-duration-in-open-state=5000
+resilience4j.circuitbreaker.instances.order.ring-buffer-size-in-closed-state=5
+resilience4j.circuitbreaker.instances.order.ring-buffer-size-in-half-open-state=3
+
+# Circuit Breaker for 'menu' endpoint
+resilience4j.circuitbreaker.instances.menu.failure-rate-threshold=50
+resilience4j.circuitbreaker.instances.menu.wait-duration-in-open-state=5000
+```
+
+**Circuit Breaker States**:
+- **CLOSED**: Normal operation (≤50% failure rate)
+- **OPEN**: All calls fail fast (after 50% failure rate)
+- **HALF_OPEN**: Testing recovery (after 5s wait in OPEN state)
+
+### Bulkhead (Semaphore-based)
+
+```properties
+# Order endpoint: Only 1 concurrent call allowed
+resilience4j.bulkhead.instances.order.max-concurrent-calls=1
+resilience4j.bulkhead.instances.order.max-wait-duration=5
+
+# Menu endpoint: 5 concurrent calls allowed
+resilience4j.bulkhead.instances.menu.max-concurrent-calls=5
+resilience4j.bulkhead.instances.menu.max-wait-duration=5
+```
+
+**Bulkhead Purpose**: Limit concurrent calls to prevent resource exhaustion
+
+### Routing Key Filtering
+
+```properties
+# Customer name = spring-{port}
+customer.name=spring-${server.port}
+
+# Consumer binding with routing key filter
+spring.cloud.stream.rabbit.bindings.notifyOrders-in-0.consumer.binding-routing-key=${customer.name}
+spring.cloud.stream.rabbit.bindings.notifyOrders-in-0.consumer.durable-subscription=true
+
+# Example:
+# Instance 8090: routing key = "spring-8090"
+# Instance 9090: routing key = "spring-9090"
+# Each instance ONLY receives its own notifications!
+```
+
+**Message Flow**:
+
+```
+waiter-service:
+  StreamBridge.send(
+    "notifyOrders-out-0", 
+    message,
+    headers: { customer: "spring-8090" }  ← Routing key
+  )
+      ↓
+RabbitMQ Exchange (notifyOrders):
+  Route by key "spring-8090"
+      ↓
+Queue: notifyOrders.customer-service-8090
+      ↓
+customer-service-8090 (ONLY this instance receives the message!)
+```
+
+### Zipkin Tracing (HTTP Reporter)
+
+```properties
+# HTTP-based tracing reporter
+management.zipkin.tracing.endpoint=http://zipkin-final-spring-course:9411/api/v2/spans
+management.tracing.sampling.probability=1.0  # 100% sampling
+```
+
+## Multi-Instance Testing
+
+### Scenario 1: Instance 1 (Port 8090) Creates Order
+
+```bash
+# Step 1: Create order from instance 1
+curl -X POST http://localhost:8090/customer/order \
+  -H "Content-Type: application/json"
+
+# Expected logs (customer-service-8090):
+# Create order: 1
+# Order is PAID: CoffeeOrder(id=1, customer=spring-8090, ...)
+# Order 1 is READY, I'll take it.  ← Only 8090 receives this!
+
+# Instance 9090 logs: (NOTHING - correct!)
+```
+
+### Scenario 2: Instance 2 (Port 9090) Creates Order
+
+```bash
+# Step 2: Create order from instance 2
+curl -X POST http://localhost:9090/customer/order \
+  -H "Content-Type: application/json"
+
+# Expected logs (customer-service-9090):
+# Create order: 2
+# Order is PAID: CoffeeOrder(id=2, customer=spring-9090, ...)
+# Order 2 is READY, I'll take it.  ← Only 9090 receives this!
+
+# Instance 8090 logs: (NOTHING - correct!)
+```
+
+**Routing Key Verification**:
+
+```bash
+# Check RabbitMQ Management UI
+open http://localhost:15672
+
+# Navigate to: Queues tab
+# You should see:
+# - notifyOrders.customer-service-8090  (binding key: spring-8090)
+# - notifyOrders.customer-service-9090  (binding key: spring-9090)
+```
+
+## Monitoring & Observability
+
+### Distributed Tracing
+
+```bash
+# View trace in Zipkin UI
+open http://localhost:9411
+
+# Trace flow example:
+# customer-service-8090 (POST /customer/order)  [Span 1]
+#   → waiter-service (POST /order/)              [Span 2 - Feign call]
+#     → waiter-service (PUT /order/{id})         [Span 3 - Update state]
+#       → RabbitMQ (newOrders)                   [Span 4-6]
+#         → barista-service (process)            [Span 7-9]
+#           → RabbitMQ (finishedOrders)          [Span 10-12]
+#             → waiter-service (update)          [Span 13-14]
+#               → RabbitMQ (notifyOrders)        [Span 15-17 - routing key!]
+#                 → customer-service-8090 (notify) [Span 18 - only 8090!]
+
+# Total spans: 20 (includes all HTTP, RabbitMQ, and internal processing)
+```
+
+### Circuit Breaker Monitoring
+
+```bash
+# Check circuit breaker state
+curl http://localhost:8090/actuator/health | jq '.components.circuitBreakers'
+
+# Circuit breaker metrics
+curl http://localhost:8090/actuator/metrics/resilience4j.circuitbreaker.state
+
+# Trigger circuit breaker (stop waiter-service, then call order endpoint 5+ times)
+for i in {1..6}; do
+  curl -X POST http://localhost:8090/customer/order
+done
+
+# Check state again (should transition to OPEN)
+curl http://localhost:8090/actuator/health | jq '.components.circuitBreakers'
+```
+
+### Bulkhead Monitoring
+
+```bash
+# Bulkhead metrics
+curl http://localhost:8090/actuator/metrics/resilience4j.bulkhead.available.concurrent.calls
+
+# Test bulkhead (order endpoint allows only 1 concurrent call)
+# In terminal 1:
+curl -X POST http://localhost:8090/customer/order  # Call 1 - allowed
+
+# In terminal 2 (within 5s):
+curl -X POST http://localhost:8090/customer/order  # Call 2 - rejected!
+# Expected: BulkheadFullException
+```
+
+## Performance & Best Practices
+
+### Feign Client Optimization
+
 ```java
+// Use Apache HttpClient 5 for connection pooling
 @Bean
-public CircuitBreakerConfig circuitBreakerConfig() {
-    return CircuitBreakerConfig.custom()
-        .failureRateThreshold(50)
-        .waitDurationInOpenState(Duration.ofMillis(1000))
-        .slidingWindowSize(2)
+public Client feignClient() {
+    return new ApacheHttp5Client(httpClient());
+}
+
+@Bean
+public CloseableHttpClient httpClient() {
+    return HttpClients.custom()
+        .setMaxConnTotal(200)
+        .setMaxConnPerRoute(50)
+        .setDefaultRequestConfig(RequestConfig.custom()
+            .setConnectTimeout(Timeout.ofMilliseconds(500))
+            .setResponseTimeout(Timeout.ofMilliseconds(500))
+            .build())
         .build();
 }
 ```
 
-## 參考資源
+### Circuit Breaker Tuning
 
-- [Spring Boot 官方文件](https://spring.io/projects/spring-boot)
-- [Spring Cloud OpenFeign 官方文件](https://spring.io/projects/spring-cloud)
-- [Resilience4j 官方文件](https://resilience4j.readme.io/)
-- [Consul 官方文件](https://www.consul.io/docs)
-- [Zipkin 官方文件](https://zipkin.io/)
+| Environment | Failure Threshold | Wait Duration | Reasoning |
+|-------------|-------------------|---------------|-----------|
+| **Development** | 50% | 5s | Current setting (easy testing) |
+| **Production** | 70% | 30s | Allow temporary failures, longer recovery |
+| **Critical Services** | 30% | 10s | Faster failure detection |
 
-## 注意事項與最佳實踐
+### Bulkhead Recommendations
 
-### ⚠️ 重要提醒
+| Endpoint Type | Max Concurrent Calls | Reasoning |
+|---------------|----------------------|-----------|
+| **Order Creation** | 1-5 | Prevent database overload |
+| **Menu Queries** | 10-50 | Read-only, can handle more |
+| **Admin APIs** | 1-2 | Protect sensitive operations |
 
-| 項目 | 說明 | 建議做法 |
-|------|------|----------|
-| 服務整合 | OpenFeign 超時設定 | 設定適當的連線與讀取超時時間 |
-| 熔斷機制 | Resilience4j 配置 | 根據業務需求調整熔斷參數 |
-| 負載均衡 | 多實例部署 | 確保服務實例的健康檢查 |
-| 鏈路追蹤 | Zipkin 採樣率 | 生產環境調整採樣率以降低效能影響 |
+## Troubleshooting
 
-### 🔒 最佳實踐指南
+### Common Issues
 
-- **服務整合**：使用 OpenFeign 實現聲明式 HTTP 客戶端，提升程式碼可讀性
-- **熔斷保護**：整合 Resilience4j 提供服務熔斷與重試機制，提升系統穩定性
-- **連線管理**：使用連線池管理 HTTP 連線，提升效能並避免連線洩漏
-- **監控告警**：整合 Prometheus 和 Grafana 進行系統監控
-- **容器化**：使用 Docker 確保環境一致性，便於部署和擴展
+| Issue | Solution |
+|-------|----------|
+| **Feign call fails** | Check waiter-service is running and registered in Consul |
+| **No notification received** | Verify routing key matches customer name |
+| **Circuit breaker always OPEN** | Check waiter-service health and reduce failure threshold |
+| **Bulkhead rejects requests** | Increase `max-concurrent-calls` or reduce timeout |
 
-## 授權說明
+### Logs Analysis
 
-本專案採用 MIT 授權條款，詳見 LICENSE 檔案。
+```bash
+# View full logs
+docker logs -f final-spring-course-final-customer-service-8090-1
 
-## 關於我們
+# Filter Feign calls
+docker logs final-spring-course-final-customer-service-8090-1 | grep "Feign"
 
-我們主要專注在敏捷專案管理、物聯網（IoT）應用開發和領域驅動設計（DDD）。喜歡把先進技術和實務經驗結合，打造好用又靈活的軟體解決方案。
+# Filter notifications
+docker logs final-spring-course-final-customer-service-8090-1 | grep "Order .* is READY"
+```
 
-## 聯繫我們
+## Comparison with Other Projects
 
-- **FB 粉絲頁**：[風清雲談 | Facebook](https://www.facebook.com/profile.php?id=61576838896062)
-- **LinkedIn**：[linkedin.com/in/chu-kuo-lung](https://www.linkedin.com/in/chu-kuo-lung)
-- **YouTube 頻道**：[雲談風清 - YouTube](https://www.youtube.com/channel/UCXDqLTdCMiCJ1j8xGRfwEig)
-- **風清雲談 部落格**：[風清雲談](https://blog.fengqing.tw/)
-- **電子郵件**：[fengqing.tw@gmail.com](mailto:fengqing.tw@gmail.com)
+| Project | Feign | Circuit Breaker | Bulkhead | Multi-Instance | Routing Key |
+|---------|-------|-----------------|----------|----------------|-------------|
+| **final-customer** | ✅ | ✅ (order, menu) | ✅ (order, menu) | ✅ Port-based | ✅ Dynamic |
+| **lazy-customer** | ✅ | ✅ (order, menu) | ✅ (order, menu) | ✅ Port-based | ✅ Dynamic |
+| **simple-customer** | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+## References
+
+- [Spring Cloud OpenFeign](https://spring.io/projects/spring-cloud-openfeign)
+- [Resilience4j Circuit Breaker](https://resilience4j.readme.io/docs/circuitbreaker)
+- [Resilience4j Bulkhead](https://resilience4j.readme.io/docs/bulkhead)
+- [Spring Cloud Stream](https://spring.io/projects/spring-cloud-stream)
+- [RabbitMQ Routing](https://www.rabbitmq.com/tutorials/tutorial-four-java.html)
+
+## License
+
+This project is licensed under the MIT License.
+
+## Contact
+
+We focus on Agile Project Management, IoT application development, and Domain-Driven Design (DDD), combining advanced technologies with practical experience to create flexible software solutions.
+
+- **Facebook**: [風清雲談](https://www.facebook.com/profile.php?id=61576838896062)
+- **LinkedIn**: [linkedin.com/in/chu-kuo-lung](https://www.linkedin.com/in/chu-kuo-lung)
+- **YouTube**: [雲談風清](https://www.youtube.com/channel/UCXDqLTdCMiCJ1j8xGRfwEig)
+- **Blog**: [風清雲談](https://blog.fengqing.tw/)
+- **Email**: [fengqing.tw@gmail.com](mailto:fengqing.tw@gmail.com)
 
 ---
 
-**📅 最後更新：2025-01-27**  
-**👨‍💻 維護者：風清雲談團隊**
+**Last Updated**: 2025-10-21  
+**Maintainer**: FengQing Team
