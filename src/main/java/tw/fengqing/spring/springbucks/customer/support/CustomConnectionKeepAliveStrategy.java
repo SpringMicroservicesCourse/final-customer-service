@@ -2,9 +2,9 @@ package tw.fengqing.spring.springbucks.customer.support;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.hc.client5.http.ConnectionKeepAliveStrategy;
 import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.client5.http.ConnectionKeepAliveStrategy;
 import org.apache.hc.core5.util.TimeValue;
 
 import java.util.Arrays;
