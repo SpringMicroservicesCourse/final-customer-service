@@ -58,10 +58,9 @@ public class CustomerController {
     }
 
     @PostMapping("/order")
-    @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "order", fallbackMethod = "createOrderFallback")
-    @io.github.resilience4j.bulkhead.annotation.Bulkhead(name = "order", fallbackMethod = "createOrderFallback")
+    @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "order")
+    @io.github.resilience4j.bulkhead.annotation.Bulkhead(name = "order")
     public CoffeeOrder createAndPayOrder() {
-        log.info("正常處理：創建訂單 for customer: {}", customer);
         NewOrderRequest orderRequest = NewOrderRequest.builder()
                 .customer(customer)
                 .items(Arrays.asList("capuccino"))
@@ -72,28 +71,5 @@ public class CustomerController {
                 OrderStateRequest.builder().state(OrderState.PAID).build());
         log.info("Order is PAID: {}", order);
         return order;
-    }
-
-    /**
-     * Fallback 方法：當熔斷器打開或隔艙已滿時調用
-     * 
-     * @param e 觸發 fallback 的異常
-     * @return null 表示訂單創建失敗
-     */
-    private CoffeeOrder createOrderFallback(Exception e) {
-        log.error("⚠️ 服務降級！原因: {}", e.getClass().getSimpleName());
-        log.error("⚠️ 錯誤訊息: {}", e.getMessage());
-        
-        // 判斷具體異常類型
-        if (e instanceof io.github.resilience4j.circuitbreaker.CallNotPermittedException) {
-            log.error("⚠️ 熔斷器已打開，服務暫時不可用");
-        } else if (e instanceof io.github.resilience4j.bulkhead.BulkheadFullException) {
-            log.error("⚠️ 隔艙已滿，系統繁忙請稍後再試");
-        } else {
-            log.error("⚠️ 服務調用失敗: {}", e.getMessage());
-        }
-        
-        // 返回 null 表示訂單創建失敗
-        return null;
     }
 }
