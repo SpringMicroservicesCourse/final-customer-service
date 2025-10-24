@@ -279,10 +279,9 @@ resilience4j.circuitbreaker.instances.menu.event-consumer-buffer-size=10
 ### Bulkhead (Semaphore-based)
 
 ```properties
-# Order endpoint: Only 1 concurrent call allowed (strict for demonstration)
+# Order endpoint: Only 1 concurrent call allowed
 resilience4j.bulkhead.instances.order.max-concurrent-calls=1
-resilience4j.bulkhead.instances.order.max-wait-duration=50ms  # ⚠️ Educational setting (easy to trigger)
-# Production recommendation: 5s
+resilience4j.bulkhead.instances.order.max-wait-duration=5s  # ← 5 seconds wait time (production standard)
 
 # Menu endpoint: 5 concurrent calls allowed
 resilience4j.bulkhead.instances.menu.max-concurrent-calls=5
@@ -292,9 +291,10 @@ resilience4j.bulkhead.instances.menu.max-wait-duration=5s
 **Bulkhead Purpose**: Limit concurrent calls to prevent resource exhaustion
 
 **Configuration Notes:**
-- **order bulkhead**: Uses 50ms wait time to easily demonstrate bulkhead behavior in testing
-- **Production**: Should use `5s` for more realistic protection
-- **Why 50ms?**: Allows ApacheBench (`ab`) testing to trigger `BulkheadFullException` reliably
+- **max-concurrent-calls=1**: Order endpoint restricted to single concurrency to protect order creation
+- **max-wait-duration=5s**: Provides 5-second wait time, reasonable production configuration
+- **Why strict?**: Order creation is a critical operation requiring resource protection
+- **ApacheBench test**: With 5s wait, failures are primarily from Circuit Breaker (not Bulkhead timeout)
 
 ### Routing Key Filtering
 
