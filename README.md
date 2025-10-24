@@ -231,38 +231,70 @@ public interface WaiterServiceClient {
 }
 ```
 
-### Resilience4j Circuit Breaker
+### Resilience4j Circuit Breaker (2.x Configuration)
+
+⚠️ **Critical**: This project uses Resilience4j 2.x (Spring Boot 3.x), NOT 1.x!
 
 ```properties
-# Circuit Breaker for 'order' endpoint
+# Circuit Breaker for 'order' endpoint (Resilience4j 2.x)
 resilience4j.circuitbreaker.instances.order.failure-rate-threshold=50
-resilience4j.circuitbreaker.instances.order.wait-duration-in-open-state=5000
-resilience4j.circuitbreaker.instances.order.ring-buffer-size-in-closed-state=5
-resilience4j.circuitbreaker.instances.order.ring-buffer-size-in-half-open-state=3
+resilience4j.circuitbreaker.instances.order.wait-duration-in-open-state=5s
+resilience4j.circuitbreaker.instances.order.sliding-window-type=COUNT_BASED         # ⚠️ Required in 2.x
+resilience4j.circuitbreaker.instances.order.sliding-window-size=5                   # ⚠️ Renamed from ring-buffer-size
+resilience4j.circuitbreaker.instances.order.minimum-number-of-calls=3               # ⚠️ Required in 2.x (3 calls trigger calculation)
+resilience4j.circuitbreaker.instances.order.permitted-number-of-calls-in-half-open-state=3
+resilience4j.circuitbreaker.instances.order.event-consumer-buffer-size=10
 
 # Circuit Breaker for 'menu' endpoint
 resilience4j.circuitbreaker.instances.menu.failure-rate-threshold=50
-resilience4j.circuitbreaker.instances.menu.wait-duration-in-open-state=5000
+resilience4j.circuitbreaker.instances.menu.wait-duration-in-open-state=5s
+resilience4j.circuitbreaker.instances.menu.sliding-window-type=COUNT_BASED
+resilience4j.circuitbreaker.instances.menu.sliding-window-size=5
+resilience4j.circuitbreaker.instances.menu.minimum-number-of-calls=3
+resilience4j.circuitbreaker.instances.menu.permitted-number-of-calls-in-half-open-state=3
+resilience4j.circuitbreaker.instances.menu.event-consumer-buffer-size=10
 ```
 
 **Circuit Breaker States**:
 - **CLOSED**: Normal operation (≤50% failure rate)
-- **OPEN**: All calls fail fast (after 50% failure rate)
-- **HALF_OPEN**: Testing recovery (after 5s wait in OPEN state)
+- **OPEN**: All calls fail fast (after 50% failure rate, minimum 3 calls)
+- **HALF_OPEN**: Testing recovery (after 5s wait, allows 3 test calls)
+
+### Resilience4j 1.x vs 2.x Migration
+
+⚠️ **Critical Configuration Difference**
+
+| Feature | Resilience4j 1.x (Old) | Resilience4j 2.x (New - Spring Boot 3.x) |
+|---------|----------------------|-------------------------------------------|
+| **Config Prefix** | `backends` | `instances` ⚠️ |
+| **Window Size** | `ring-buffer-size-in-closed-state` | `sliding-window-size` ⚠️ |
+| **Window Type** | N/A | `sliding-window-type=COUNT_BASED` ⚠️ Required |
+| **Min Calls** | N/A | `minimum-number-of-calls` ⚠️ Required |
+| **Half-Open Calls** | `ring-buffer-size-in-half-open-state` | `permitted-number-of-calls-in-half-open-state` |
+| **Bulkhead Max** | `max-concurrent-call` | `max-concurrent-calls` ⚠️ Plural |
+| **Bulkhead Wait** | `max-wait-time` | `max-wait-duration` ⚠️ |
+
+**If using 1.x parameters in Spring Boot 3.x, Circuit Breaker and Bulkhead will NOT trigger!**
 
 ### Bulkhead (Semaphore-based)
 
 ```properties
-# Order endpoint: Only 1 concurrent call allowed
+# Order endpoint: Only 1 concurrent call allowed (strict for demonstration)
 resilience4j.bulkhead.instances.order.max-concurrent-calls=1
-resilience4j.bulkhead.instances.order.max-wait-duration=5
+resilience4j.bulkhead.instances.order.max-wait-duration=50ms  # ⚠️ Educational setting (easy to trigger)
+# Production recommendation: 5s
 
 # Menu endpoint: 5 concurrent calls allowed
 resilience4j.bulkhead.instances.menu.max-concurrent-calls=5
-resilience4j.bulkhead.instances.menu.max-wait-duration=5
+resilience4j.bulkhead.instances.menu.max-wait-duration=5s
 ```
 
 **Bulkhead Purpose**: Limit concurrent calls to prevent resource exhaustion
+
+**Configuration Notes:**
+- **order bulkhead**: Uses 50ms wait time to easily demonstrate bulkhead behavior in testing
+- **Production**: Should use `5s` for more realistic protection
+- **Why 50ms?**: Allows ApacheBench (`ab`) testing to trigger `BulkheadFullException` reliably
 
 ### Routing Key Filtering
 
